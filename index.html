@@ -2,16 +2,19 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Advanced AI NFT Collection</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+  <!-- Using fixed Ethers v5 bundle -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
   <style>
     body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; background: #121212; color: #fff; }
-    .card { background: #1e1e1e; padding: 30px; border-radius: 12px; display: inline-block; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+    .card { background: #1e1e1e; padding: 30px; border-radius: 12px; display: inline-block; box-shadow: 0 4px 10px rgba(0,0,0,0.5); max-width: 450px; width: 90%; }
     button { padding: 12px 24px; font-size: 16px; font-weight: bold; margin: 10px; cursor: pointer; border: none; border-radius: 6px; }
+    button:disabled { background: #444 !important; cursor: not-allowed; opacity: 0.6; }
     .btn-connect { background: #f6851b; color: white; }
     .btn-mint { background: #00d26a; color: white; }
-    input { padding: 10px; width: 80%; margin-bottom: 15px; border-radius: 4px; border: 1px solid #333; }
-    #status { margin-top: 15px; font-weight: bold; color: #00e676; }
+    input { padding: 12px; width: 85%; margin-bottom: 15px; border-radius: 6px; border: 1px solid #333; background: #2a2a2a; color: #fff; }
+    #status { margin-top: 15px; font-weight: bold; word-break: break-word; }
   </style>
 </head>
 <body>
@@ -21,11 +24,11 @@
     <p>Mint Price: <strong>0.001 Sepolia ETH</strong></p>
     
     <button id="connectBtn" class="btn-connect" onclick="connectWallet()">Connect MetaMask</button>
-    <p id="walletAddress"></p>
+    <p id="walletAddress" style="color: #aaa; font-size: 14px;"></p>
 
     <hr style="border-color: #333; margin: 20px 0;">
 
-    <input type="text" id="tokenURI" placeholder="Enter IPFS Metadata URL (e.g. https://gateway.pinata.cloud/...)" />
+    <input type="text" id="tokenURI" placeholder="ipfs://... or https://gateway.pinata.cloud/ipfs/..." />
     <br>
     <button id="mintBtn" class="btn-mint" onclick="mintNFT()" disabled>Mint NFT</button>
 
@@ -34,6 +37,8 @@
 
   <script>
     const CONTRACT_ADDRESS = "0xdAc094537C3c2e5e333178CC8D95A955db333a2d";
+    const SEPOLIA_CHAIN_ID = "0xaa36a7"; // 11155111 in hex
+
     const CONTRACT_ABI = [
       "function mintNFT(string memory tokenURI) public payable returns (uint256)",
       "function tokenRarity(uint256 tokenId) public view returns (uint256)"
@@ -42,38 +47,88 @@
     let provider, signer, contract;
 
     async function connectWallet() {
-      if (window.ethereum) {
+      const statusDiv = document.getElementById("status");
+
+      // Fix 1: Explicitly check if MetaMask / injected provider exists
+      if (typeof window.ethereum === "undefined") {
+        statusDiv.style.color = "#ff5252";
+        statusDiv.innerText = "MetaMask not detected! Please install the browser extension.";
+        return;
+      }
+
+      try {
         provider = new ethers.providers.Web3Provider(window.ethereum);
+        
+        // Request account access
         await provider.send("eth_requestAccounts", []);
+        
+        // Fix 2: Ensure user is on Sepolia Network
+        const network = await provider.getNetwork();
+        if (network.chainId !== 11155111) {
+          try {
+            await window.ethereum.request({
+              method: "wallet_switchEthereumChain",
+              params: [{ chainId: SEPOLIA_CHAIN_ID }],
+            });
+          } catch (switchError) {
+            statusDiv.style.color = "#ff5252";
+            statusDiv.innerText = "Please switch your MetaMask network to Sepolia Testnet!";
+            return;
+          }
+        }
+
         signer = provider.getSigner();
         const address = await signer.getAddress();
         
         document.getElementById("walletAddress").innerText = "Connected: " + address.substring(0,6) + "..." + address.substring(38);
         document.getElementById("mintBtn").disabled = false;
+        document.getElementById("connectBtn").innerText = "Connected";
         
         contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-      } else {
-        alert("Please install MetaMask!");
+        statusDiv.style.color = "#00e676";
+        statusDiv.innerText = "Wallet connected successfully.";
+      } catch (error) {
+        console.error(error);
+        statusDiv.style.color = "#ff5252";
+        statusDiv.innerText = "Connection failed: " + (error.message || error);
       }
     }
 
     async function mintNFT() {
-      const uri = document.getElementById("tokenURI").value;
-      if (!uri) return alert("Please enter a valid IPFS Token URI!");
-
+      const uri = document.getElementById("tokenURI").value.trim();
       const statusDiv = document.getElementById("status");
+
+      if (!uri) {
+        statusDiv.style.color = "#ff5252";
+        statusDiv.innerText = "Please enter a valid IPFS Metadata URL!";
+        return;
+      }
+
+      if (!contract) {
+        statusDiv.style.color = "#ff5252";
+        statusDiv.innerText = "Please connect your wallet first.";
+        return;
+      }
+
       try {
-        statusDiv.innerText = "Transaction pending... Please confirm in MetaMask.";
+        statusDiv.style.color = "#ffb300";
+        statusDiv.innerText = "Confirm transaction in MetaMask...";
         
-        // Calls mintNFT with 0.001 ETH value attached
-        const tx = await contract.mintNFT(uri, { value: ethers.utils.parseEther("0.001") });
-        statusDiv.innerText = "Minting in progress... Waiting for block confirmation.";
+        // Executes contract transaction with 0.001 ETH
+        const tx = await contract.mintNFT(uri, { 
+          value: ethers.utils.parseEther("0.001") 
+        });
+
+        statusDiv.innerText = "Minting... Waiting for block confirmation.";
         
         await tx.wait();
+        
+        statusDiv.style.color = "#00e676";
         statusDiv.innerText = "🎉 NFT Minted Successfully!";
       } catch (error) {
         console.error(error);
-        statusDiv.innerText = "Error: " + (error.reason || error.message);
+        statusDiv.style.color = "#ff5252";
+        statusDiv.innerText = "Mint Failed: " + (error.reason || error.message);
       }
     }
   </script>
