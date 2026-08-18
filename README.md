@@ -9,7 +9,7 @@ An ERC-721 smart contract built with Solidity, OpenZeppelin, and IPFS, featuring
 - **Initial Idea:** The main mascot of the NFT is based off of the playable character of a game I like called rain world.
 
 ### 2. Prompt
-- **Promt:** For my prompt I told the AI to make a character that would look like the character I like and told it to include the metaverse name and the name of the course. 
+- **Prompt:** For my prompt I told the AI to make a character that would look like the character I like and told it to include the metaverse name and the name of the course. 
 
 ### 3. Refining
 - **Refining:** After my image was generated I would give my opinions to the AI until it gave something that i felt was really good.
