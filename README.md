@@ -16,7 +16,7 @@ An ERC-721 smart contract built with Solidity, OpenZeppelin, and IPFS, featuring
 
 ## Deployed Contract
 - **Network:** Ethereum Sepolia Testnet
-- **Contract Address:** `0xdAc094537C3c2e5e333178CC8D95A955db333a2d`
+- **Contract Address:** `0x22159A25e8B939eBBDaC9fCFe8EA3B365657ABf7`
 
 ## Code Walkthrough & Features
 
